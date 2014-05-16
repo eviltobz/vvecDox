@@ -11,18 +11,21 @@ F_CPU := 16000000
 # initialization in source
 
 
-SRCDIR = src
-OBJDIR = obj
-BINDIR = bin
+SRCDIR = src/
+OBJDIR = obj/
+BINDIR = bin/
 
-SOURCES  := $(wildcard $(SRCDIR)/*.c)
-INCLUDES := $(wildcard $(SRCDIR)/*.c)
-OBJECTS  := $(SOURCES:$(SRCDIR)/%.c=$(OBJDIR)/%.o)
+SOURCES  := $(wildcard $(SRCDIR)*.c)
+INCLUDES := $(wildcard $(SRCDIR)*.c)
+OBJECTS  := $(SOURCES:$(SRCDIR)%.c=$(OBJDIR)%.o)
 
 # Compiler flags to generate dependency files.
 GENDEPFLAGS = -MMD -MP -MF $@.dep
 
 CC = avr-gcc
+OBJCOPY := avr-objcopy
+RM       = rm -f
+
 CFLAGS += -mmcu=$(MCU)      # processor type; must match real life
 CFLAGS += -DF_CPU=$(F_CPU)  # processor frequency; must match initialization in source
 CFLAGS += -std=gnu99  # use C99 plus GCC extensions
@@ -40,37 +43,48 @@ CFLAGS += -fdata-sections      # /   section in the output file if the
 			       #     unused code.
 
 LINKER = avr-gcc -o
-LDFLAGS += -Wl,-Map=$(TARGET).map,--cref  # generate a link map, with a cross
+LFLAGS += -Wl,-Map=$(OBJDIR)$(TARGET).map,--cref  # generate a link map, with a cross
 					  #   reference table
-LDFLAGS += -Wl,--relax        # for some linker optimizations
-LDFLAGS += -Wl,--gc-sections  # discard unused functions and data
+LFLAGS += -Wl,--relax        # for some linker optimizations
+LFLAGS += -Wl,--gc-sections  # discard unused functions and data
 
 
-rm       = rm -f
 
-#all:
-	#@echo "hmmm"
-	#@echo $(SOURCES)
 
-# Compile: create object files from C source files.
-#$(OBJDIR)/%.o
-	#@echo
-	#@echo "compiling..." $<
-	#$(CC) -c $(ALL_CFLAGS) $< -o $@ 
 
-$(BINDIR)/$(TARGET): $(OBJECTS)
+build: start $(TARGET).hex end
+
+$(TARGET).hex: $(OBJDIR)$(TARGET).elf
+	@echo
+	@echo '--- Hexxing $@ ---'
+	$(OBJCOPY) -O $(BINARY_FORMAT) \
+		-R .eeprom -R .fuse -R .lock -R .signature \
+		$< $(BINDIR)$@
+
+%.elf: $(OBJECTS)
 	@echo 
-	@echo "--- Linking $<"
-	$(LINKER) $@ $(LFLAGS) $(OBJECTS)
+	@echo "--- Elfing $@"
+	$(LINKER) $@ $(strip $(LFLAGS)) $(OBJECTS)
 
-$(OBJECTS): $(OBJDIR)/%.o : $(SRCDIR)/%.c
+$(OBJECTS): $(OBJDIR)%.o : $(SRCDIR)%.c
 	@echo 
 	@echo "--- Compiling $<"
 	$(CC) $(strip $(CFLAGS) $(GENDEPFLAGS)) -c $< -o $@
 
+start:
+	@echo
+	@echo "----- Starting build -----"
+
+end:
+	@echo
+	@echo "----- Finished build -----"
+
 .PHONEY: clean
 clean:
-	$(rm) $(OBJECTS)
-	$(rm) $(BINDIR)/$(TARGET)
-	@echo "Cleanup complete!"
+	@echo "----- Cleaning -----"
+	$(RM) $(OBJDIR)*
+	$(RM) $(BINDIR)$(TARGET).hex
+	@echo 
 
+.PHONEY: rebuild
+rebuild:  clean build 
