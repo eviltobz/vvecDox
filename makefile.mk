@@ -12,8 +12,8 @@ F_CPU := 16000000
 
 
 SRCDIR = src/
-OBJDIR = obj/
-BINDIR = bin/
+BINDIR = build/
+OBJDIR = build/obj/
 
 SOURCES  := $(wildcard $(SRCDIR)*.c)
 INCLUDES := $(wildcard $(SRCDIR)*.c)
@@ -52,14 +52,14 @@ LFLAGS += -Wl,--gc-sections  # discard unused functions and data
 
 
 
-build: start $(TARGET).hex end
+build: start $(BINDIR)$(TARGET).hex end
 
-$(TARGET).hex: $(OBJDIR)$(TARGET).elf
+$(BINDIR)$(TARGET).hex: $(OBJDIR)$(TARGET).elf
 	@echo
-	@echo '--- Hexxing $@ ---'
+	@echo '--- Hexxing ---'
 	$(OBJCOPY) -O $(BINARY_FORMAT) \
 		-R .eeprom -R .fuse -R .lock -R .signature \
-		$< $(BINDIR)$@
+		$< $@
 
 %.elf: $(OBJECTS)
 	@echo 
@@ -67,7 +67,6 @@ $(TARGET).hex: $(OBJDIR)$(TARGET).elf
 	$(LINKER) $@ $(strip $(LFLAGS)) $(OBJECTS)
 
 $(OBJECTS): $(OBJDIR)%.o : $(SRCDIR)%.c
-	@echo 
 	@echo "--- Compiling $<"
 	$(CC) $(strip $(CFLAGS) $(GENDEPFLAGS)) -c $< -o $@
 
@@ -84,7 +83,6 @@ clean:
 	@echo "----- Cleaning -----"
 	$(RM) $(OBJDIR)*
 	$(RM) $(BINDIR)$(TARGET).hex
-	@echo 
 
 .PHONEY: rebuild
 rebuild:  clean build 
